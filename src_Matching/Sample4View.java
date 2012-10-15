@@ -1,14 +1,23 @@
 package org.opencv.samples.tutorial4;
 
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Vector;
+
 import org.opencv.android.Utils;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
+import org.opencv.core.MatOfDMatch;
 import org.opencv.core.MatOfFloat;
 import org.opencv.core.MatOfKeyPoint;
 import org.opencv.core.MatOfPoint2f;
+import org.opencv.core.Scalar;
 import org.opencv.core.Size;
+import org.opencv.calib3d.*;
 import org.opencv.core.TermCriteria;
+import org.opencv.features2d.DescriptorExtractor;
+import org.opencv.features2d.DescriptorMatcher;
 import org.opencv.features2d.FeatureDetector;
 import org.opencv.features2d.Features2d;
 import org.opencv.features2d.KeyPoint;
@@ -17,6 +26,7 @@ import org.opencv.video.Video;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.PointF;
 import android.util.Log;
 
 class Sample4View extends SampleViewBase {
@@ -32,20 +42,22 @@ class Sample4View extends SampleViewBase {
     private Mat mIntermediateMat;
     private Mat mRgbaOld;
     private Mat mRgbOld;
+    private Mat mFund;
+    private Mat mHom;
 
     private int mViewMode;
 	private Bitmap mBitmap;
-	static final Size wSize = new Size(3,3);
+	private static final Size wSize = new Size(3,3);
 	
-	static final TermCriteria tCriteria = new TermCriteria();
-	static final double[] params = {20,0.3};
+	private static final TermCriteria tCriteria = new TermCriteria();
+	private static final double[] params = {20,0.3};
 		
 	private FeatureDetector featureDetector = FeatureDetector.create(FeatureDetector.FAST);
 	private MatOfKeyPoint mKeyPts = new MatOfKeyPoint();
-	private MatOfKeyPoint mKeyPtsOld;
+	private MatOfKeyPoint mKeyPtsOld = new MatOfKeyPoint();
 	
-	private MatOfByte status;
-	private MatOfFloat error;
+	private MatOfByte status = new MatOfByte();
+	private MatOfFloat error = new MatOfFloat();
 	
     public Sample4View(Context context) {
         super(context);
@@ -100,37 +112,80 @@ class Sample4View extends SampleViewBase {
             break;
         case VIEW_MODE_FEATURES_KLT:
         	
+        	mRgb = new Mat();
         	Imgproc.cvtColor(mYuv, mRgba, Imgproc.COLOR_YUV420sp2RGB, 4);
         	Imgproc.cvtColor(mRgba, mRgb, Imgproc.COLOR_RGBA2RGB);
         	
-        	if(!(mRgbOld == null)){
-	        	
+        	if(mRgbOld != null){
+	            MatOfPoint2f m2fOld = new MatOfPoint2f();
+			    MatOfPoint2f m2f	= new MatOfPoint2f(); 
 	            //Imgproc.cvtColor(mYuv, mRgba, Imgproc.COLOR_YUV420sp2RGB, 4);
-			    featureDetector.detect(mGraySubmat, mKeyPts);		    
-			    tCriteria.set(params);
 			    
-			    //Imgproc.cvtColor(mRgba, mRgb, Imgproc.COLOR_RGBA2RGB);
+			    featureDetector.detect(mGraySubmat, mKeyPts);
+			   
+			    /*
+			     * Native code usage start
+			     */
+		        //FindFeatures(mRgba.nativeObj, m2f.nativeObj, 50);
+			    /*
+			     * Native code usage end
+			     */
 			    
-			    Video.calcOpticalFlowPyrLK(mRgbOld, mRgb, new MatOfPoint2f(mKeyPtsOld), new MatOfPoint2f(mKeyPts), status, error, wSize, 5, tCriteria, Video.OPTFLOW_LK_GET_MIN_EIGENVALS, 0.1 );
-		    
-        	}
-        	else{
+        		tCriteria.set(params); 
+        			
         		
-        		mRgbOld = mRgb;
-        		mKeyPtsOld = mKeyPts;
+        		KeyPoint[] kPOld = mKeyPtsOld.toArray();
+        		for(int i = 0; i < kPOld.length; i++)
+        		{
+        			m2fOld.fromArray(kPOld[i].pt);
+        		}
+        		
+        		KeyPoint[] kP = mKeyPts.toArray();
+        		for(int i = 0; i < kPOld.length; i++)
+        		{
+        			m2f.fromArray(kP[i].pt);
+        		}
+        			
+        	
+			    error = new MatOfFloat();
+			    
+			    
+			    
+			    Mat descriptors = new Mat();
+			    Mat descriptorsOld = new Mat();
+			    MatOfDMatch mMatches = new MatOfDMatch();
+			    
+			    DescriptorExtractor descriptorExtractor = DescriptorExtractor.create(DescriptorExtractor.BRIEF);
+			    DescriptorMatcher descriptorMatcher = DescriptorMatcher.create(DescriptorMatcher.BRUTEFORCE_HAMMING);
+			    descriptorExtractor.compute(mRgb, mKeyPts, descriptors);
+			    descriptorExtractor.compute(mRgbOld, mKeyPtsOld, descriptorsOld);
+			    descriptors.push_back(descriptorsOld);
+			    descriptorMatcher.match(descriptors, mMatches);
+			    
+			    
+			    //Video.calcOpticalFlowPyrLK(mRgbOld, mRgb, m2fOld, m2f, status, error, wSize, 5, tCriteria, Video.OPTFLOW_USE_INITIAL_FLOW, 0.1 );
+			    mFund = Calib3d.findFundamentalMat(m2f, m2fOld, Calib3d.FM_8POINT, 1.0, 0.99, status);
+			    //mHom = Calib3d.findHomography(m2fOld, m2f);
+			    
+			    //Video.calcOpticalFlowPyrLK(mRgbOld, mRgb, m2fOld, m2f, status, error);
         	}
-		    /*Mat buf = new Mat();
+        		
+        	mRgbOld = mRgb;
+        	mKeyPtsOld = mKeyPts;
+        	
+        	
+		    Mat buf = new Mat();
 		    Imgproc.cvtColor(mRgba, buf, Imgproc.COLOR_RGBA2RGB);
-		    Features2d.drawKeypoints(buf, keyPts, buf);
+		    Features2d.drawKeypoints(buf, mKeyPts, buf);
 		    Imgproc.cvtColor(buf, mRgba, Imgproc.COLOR_RGB2RGBA);
-		     */
+		     
 		    
 		    
 		    
             break;
         case VIEW_MODE_FEATURES:
             Imgproc.cvtColor(mYuv, mRgba, Imgproc.COLOR_YUV420sp2RGB, 4);
-            FindFeatures(mGraySubmat.getNativeObjAddr(), mRgba.getNativeObjAddr());
+            //FindFeatures(mGraySubmat.getNativeObjAddr(), mRgba.getNativeObjAddr());
             break;
         }
 
@@ -147,7 +202,7 @@ class Sample4View extends SampleViewBase {
         return bmp;
     }
 
-    public native void FindFeatures(long matAddrGr, long matAddrRgba);
+    public native void FindFeatures(long matAddrRgba, long res, int pts);
 
     public void setViewMode(int viewMode) {
 		mViewMode = viewMode;
