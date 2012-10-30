@@ -1,4 +1,4 @@
-function H = ComputeHomography(x, x_prime, F)
+function [H, v, A, e_prime] = ComputeHomography(x, x_prime, F)
 
 % Compute epipole F^T*e= 0
 [U,S,V] = svd(F');

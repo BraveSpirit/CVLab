@@ -1,4 +1,4 @@
-function inliers = RANSAC3pt_adaptive(pts1,pts2,F,thresh,prob,maxNum)
+function [inliers,v, A, e_prime] = RANSAC3pt_adaptive(pts1,pts2,F,thresh,prob,maxNum)
 
 % maxNum: terminate after maxNum steps if a success rate of prob could
 % not be achieved
@@ -16,12 +16,13 @@ for i = 1:maxNum
     end
     
     % select 8 random point correspondences
-    selectedIndeces = randperm(size(pts1,2),3);
+    selectedIndeces = randperm(size(pts1,2));
+    selectedIndeces = selectedIndeces(1:3);
     selPoints1 = pts1(:,selectedIndeces);
     selPoints2 = pts2(:,selectedIndeces);
     
     % compute fundamental matrix
-    H = ComputeHomography(selPoints1,selPoints2,F);
+    [H,v, A, e_prime] = ComputeHomography(selPoints1,selPoints2,F);
      
     d = ComputeError(pts1, pts2, H);
         
@@ -41,5 +42,4 @@ for i = 1:maxNum
     
 end    
     
-
 end

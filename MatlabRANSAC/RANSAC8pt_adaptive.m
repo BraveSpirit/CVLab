@@ -17,7 +17,8 @@ for i = 1:maxNum
     end
     
     % select 8 random point correspondences
-    selectedIndeces = randperm(size(pts1,2),8);
+    selectedIndeces = randperm(size(pts1,2));
+    selectedIndeces = selectedIndeces(1:8);
     selPoints1 = pts1(:,selectedIndeces);
     selPoints2 = pts2(:,selectedIndeces);
     

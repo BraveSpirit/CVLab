@@ -1,47 +1,44 @@
-% Decompose the essential matrix
-% Return P = [R|t] which relates the two views
-% You will need the point correspondences to find the correct solution for P
-function [Pcorrect] = decomposeE(Eh, x1s, x2s)
-
-[U,S,V] = svd(Eh);
-
-W = [0 -1 0;
-     1 0 0;
-     0 0 1];
-
-R1 = U*W*V';
-R2 = U*W'*V';
-
-%  Check determinant!
-det(R1);
-det(R2);
-
-tCross = Eh/R1;
-
-t = [tCross(2,3);tCross(3,1); tCross(1,2)];
-t = t/norm(t);
-
-P1 = [R1,t];
-P2 = [R1,-t];
-P3 = [R2,t];
-P4 = [R2,-t];
-
-P = [P1, P2, P3, P4];
-
-for i = 1:4
-    P_1 = [eye(3),zeros(3,1)];
-    P_2 = P(:,(4*i-3):4*i);
+function P = decomposeE(E, x1s, x2s)
     
-    [XS, err] = linearTriangulation(P_1, x1s, P_2, x2s);
-    if(~(sum(XS(3,:) < 0) > 0))
-        Pcorrect = P_2;
-        R = P_2(:,1:3);
-        t = P_2(:,end);
-        break
+    W = [0 -1 0;
+         1  0 0;
+         0  0 1];
+     
+    [U, S, V] = svd(E);
+    
+    % extract translation
+    t = U*[0,0,1]';
+    
+    % extract rotation
+    R1 = U*W*V';
+    R2 = U*W'*V';
+    
+    if (det(R1) < 0 )
+        R1 = -R1;
     end
+    
+    if (det(R2) < 0 )
+        R2 = -R2;
+    end
+    
+    P1 = eye(4);
+    
+    % four possible solutions
+    Ps = {[R1, t; 0, 0, 0, 1], [R1, -t; 0, 0, 0, 1], ...
+          [R2, t; 0, 0, 0, 1], [R2, -t; 0, 0, 0, 1]};
+
+    %showCameras({P1, Ps{:}}, 20);
+    P = [];
+    c(1:4) = 0;
+    for k = 1:size(Ps,2)
+        X = linearTriangulation(P1, x1s, Ps{k}, x2s);
+        
+        p1X = P1*X;
+        p2X = Ps{k}*X;
+
+        count = length(find(p1X(3,:) >= 0 & p2X(3,:) >= 0));
+        c(k) = count;               
+    end
+    [m,i] = max(c);
+    P = Ps{i};
 end
-
-
-
-
-

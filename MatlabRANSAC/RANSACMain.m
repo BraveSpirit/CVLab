@@ -46,7 +46,7 @@ pts1 = [pts1;ones(1,size(pts1,2))];
 pts2 = [pts2;ones(1,size(pts2,2))];
 
 thresh = 2;
-prob = .999;
+prob = .9;
 maxNum = 10000;
 
 [inliers,F] = RANSAC8pt_adaptive(pts1,pts2,thresh,prob,maxNum);
@@ -57,14 +57,44 @@ ptsInliers2 = pts2(1:2,inliers);
 showFeatureMatches(img1, ptsInliers1, img2, ptsInliers2, 30, []);
 % pause
 thresh = 1;
-prob = .999;
+prob = .9;
 
-inliers = RANSAC3pt_adaptive(pts1,pts2,F,thresh,prob, maxNum);
+%% Code for pose retrieving
+K = [528.296 0 325.541;
+    0 529.181 231.762;
+    0 0 1];
+npts = size(ptsInliers1,2);
+ptsInliers1 = [ptsInliers1; ones(1,npts)];
+ptsInliers2 = [ptsInliers2; ones(1,npts)];
+x1_calibrated = inv(K)*ptsInliers1;
+x2_calibrated = inv(K)*ptsInliers2;
+%%
+
+[inliers, v, A, e_prime] = RANSAC3pt_adaptive(pts1,pts2,F,thresh,prob, maxNum);
 ptsInliers1 = pts1(1:2,inliers);
 ptsInliers2 = pts2(1:2,inliers);
+
 showFeatureMatches(img1, ptsInliers1, img2, ptsInliers2, 100, []);
 
-% Compute essential matrix
+
+
+
+fig = 3;
+figure(fig)
+hold on
+t = 0.1;
+
+P{1} = [[eye(3,3), zeros(3,1)]; [ 0 0 0 1]];
+decomposeE(K'*F*K, x1_calibrated, x2_calibrated);
+P{2} = decomposeE(K'*F*K, x1_calibrated, x2_calibrated);
+%P{2} = [[A,e_prime];[0 0 0 1]];
+%P{2}
+[[A,e_prime];[0 0 0 1]]
+drawCameras(P, fig);
+plotPlane(v, fig);
+
+hold off
+
 % [Eh, E, x1n, x2n] = essentialMatrix(trackedPoints1, trackedPoints2);
 % [Pcorrect] = decomposeE(Eh, x1n, x2n);
 % [XS, err] = linearTriangulation([eye(3),zeros(3,1)], trackedPoints1, Pcorrect, trackedPoints2);
